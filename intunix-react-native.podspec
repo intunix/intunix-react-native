@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
   # The native Intunix iOS SDK is published with Swift Package Manager (React Native 0.75+).
   spm_dependency(s,
     url: "https://github.com/intunix/intunix-ios",
-    requirement: { kind: "upToNextMajorVersion", minimumVersion: "1.5.5" },
+    requirement: { kind: "upToNextMajorVersion", minimumVersion: "1.5.6" },
     products: ["Intunix"]
   )
 end

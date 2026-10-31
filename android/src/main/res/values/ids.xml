@@ -1,0 +1,4 @@
+<resources>
+    <item name="intunix_form_id" type="id" />
+    <item name="intunix_form_context" type="id" />
+</resources>

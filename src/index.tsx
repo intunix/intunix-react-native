@@ -40,7 +40,7 @@ const Native: {
 
 /** Intunix feedback forms. Call `initialize` once, at app start. */
 export const Intunix = {
-  version: '1.5.6',
+  version: '1.5.7',
   initialize: (apiKey: string, options: IntunixOptions = {}) => Native.initialize(apiKey, options),
   /** Identify the signed-in user. Call on every login. */
   identify: (userId: string, traits: Properties = {}) => Native.identify(userId, traits),

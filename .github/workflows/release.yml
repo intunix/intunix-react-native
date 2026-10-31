@@ -1,0 +1,44 @@
+name: Release
+
+# Triggered by pushing a version tag (e.g. 1.5.7), or run manually.
+# Publishes @intunix/react-native to npm, the same way intunix-sdk publishes its packages.
+on:
+  push:
+    tags: ['*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npx jest
+      - name: Tag matches package.json
+        if: github.event_name == 'push'
+        run: |
+          ver=$(node -p "require('./package.json').version")
+          [ "$ver" = "$GITHUB_REF_NAME" ] || { echo "::error::tag $GITHUB_REF_NAME but package.json says $ver"; exit 1; }
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          name=$(node -p "require('./package.json').name")
+          ver=$(node -p "require('./package.json').version")
+          if npm view "$name@$ver" version >/dev/null 2>&1; then
+            echo "↷ $name@$ver already published — skipping"
+          else
+            echo "↑ publishing $name@$ver"
+            npm publish --access public
+          fi

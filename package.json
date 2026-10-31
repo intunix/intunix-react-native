@@ -1,6 +1,6 @@
 {
   "name": "@intunix/react-native",
-  "version": "1.5.6",
+  "version": "1.5.7",
   "description": "Intunix feedback forms (NPS, CSAT, CES, ratings, follow-ups) in React Native apps, using the native Intunix Android and iOS SDKs.",
   "main": "src/index.tsx",
   "types": "src/index.tsx",

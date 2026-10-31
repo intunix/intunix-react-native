@@ -16,6 +16,8 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npx tsc --noEmit
       - run: npx jest
+      - name: Vendored iOS SDK matches its tag
+        run: ./scripts/sync-ios-sdk.sh && git diff --exit-code -- ios/IntunixSDK
 
   # Fresh React Native apps that install this package from a tarball, the way users do.
   android:

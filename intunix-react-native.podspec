@@ -13,13 +13,11 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/intunix/intunix-react-native.git", :tag => s.version.to_s }
   s.source_files = "ios/**/*.{h,m,mm,swift}"
   s.swift_version = "5.9"
+  # The vendored SDK uses Swift `package` access, which needs a package name outside SwiftPM.
+  s.pod_target_xcconfig = { "OTHER_SWIFT_FLAGS" => "$(inherited) -package-name intunix" }
 
   s.dependency "React-Core"
 
-  # The native Intunix iOS SDK is published with Swift Package Manager (React Native 0.75+).
-  spm_dependency(s,
-    url: "https://github.com/intunix/intunix-ios",
-    requirement: { kind: "upToNextMajorVersion", minimumVersion: "1.5.6" },
-    products: ["Intunix"]
-  )
+  # The Intunix iOS SDK sources are vendored in ios/IntunixSDK (see scripts/sync-ios-sdk.sh):
+  # spm_dependency links the Swift package twice into the pod.
 end

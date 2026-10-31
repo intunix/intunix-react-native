@@ -16,8 +16,8 @@ npm install github:intunix/intunix-react-native
 cd ios && pod install
 ```
 
-- **iOS:** the iOS SDK comes from Swift Package Manager; the podspec pulls it in with React
-  Native's `spm_dependency` (0.75+). Nothing else to do.
+- **iOS:** the pod includes the Intunix iOS SDK sources (pinned in `ios/IntunixSDK/VERSION`).
+  Nothing else to do.
 - **Android:** the SDK comes from JitPack; the package adds that repository for you. If your
   `android/settings.gradle` sets `repositoriesMode` to `FAIL_ON_PROJECT_REPOS`, add
   `maven { url "https://jitpack.io" }` to its repositories.

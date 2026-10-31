@@ -1,6 +1,5 @@
 import Foundation
 import React
-import Intunix
 
 /// Bridges `NativeModules.Intunix` to the native Intunix iOS SDK.
 @objc(Intunix)

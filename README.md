@@ -12,7 +12,7 @@ React Native 0.76+ (old or new architecture) · Android 7.0+ · iOS 15+ · not E
 ## Install
 
 ```bash
-npm install github:intunix/intunix-react-native
+npm install @intunix/react-native
 cd ios && pod install
 ```
 

@@ -58,6 +58,6 @@ jobs:
         run: |
           xcodebuild -workspace Consumer.xcworkspace -scheme Consumer -sdk iphonesimulator -configuration Debug \
             -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/i.log" 2>&1 || {
-            grep -E -A4 "error:" "$RUNNER_TEMP/i.log" | head -n 40 | while read -r l; do [ -n "$l" ] && echo "::error::$l"; done
+            grep -E -B2 -A3 "Undefined symbol|ld: |error:" "$RUNNER_TEMP/i.log" | grep -vE "warning:|note:" | head -n 45 | while read -r l; do [ -n "$l" ] && echo "::error::$l"; done
             exit 1
           }

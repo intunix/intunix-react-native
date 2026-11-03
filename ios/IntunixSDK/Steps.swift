@@ -175,8 +175,8 @@ struct ThumbsStep: View {
                 let up = value == "up"
                 let accent = toned ? (up ? IconSets.green : IconSets.red) : brand.color
                 let tint = toned ? accent.opacity(0.15) : brand.soft
-                let fill = on && toned ? (up ? Color(hex: 0xF0FDF4) : Color(hex: 0xFEF2F2)) : Crisp.card
-                let labelColor = !on ? Crisp.muted : toned ? (up ? Color(hex: 0x15803D) : Color(hex: 0xB91C1C)) : brand.color
+                let fill = on && toned ? (up ? Crisp.posBg : Crisp.negBg) : Crisp.card
+                let labelColor = !on ? Crisp.muted : toned ? (up ? Crisp.posFg : Crisp.negFg) : brand.color
                 Button { onChange(Answer(step.id, "thumbs", .choice(value))) } label: {
                     VStack(spacing: 4) {
                         Group {

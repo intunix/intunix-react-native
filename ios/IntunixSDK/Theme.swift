@@ -1,20 +1,73 @@
 #if os(iOS)
 import SwiftUI
 
-/// Colours and sizes from FEEDBACK_CSS in @intunix/core (the Crisp style).
+/// Colours and sizes from FEEDBACK_CSS in @intunix/core (the Crisp style). Each colour
+/// resolves light or dark from the colour scheme ``FormTheme`` sets on the form.
 enum Crisp {
-    static let text = Color(hex: 0x18181B)
-    static let muted = Color(hex: 0x71717A)
-    static let border = Color(hex: 0xE4E4E7)
-    static let scaleText = Color(hex: 0x3F3F46)
-    static let track = Color(hex: 0xECECEE)
-    static let markBorder = Color(hex: 0xD4D4D8)
-    static let neutral = Color(hex: 0xA1A1AA)
-    static let error = Color(hex: 0xDC2626)
-    static let card = Color.white
+    static let text = themed(\.text)
+    static let muted = themed(\.muted)
+    static let border = themed(\.border)
+    static let scaleText = themed(\.scaleText)
+    static let track = themed(\.track)
+    static let markBorder = themed(\.markBorder)
+    static let neutral = themed(\.neutral)
+    static let error = themed(\.error)
+    static let card = themed(\.card)
+    static let surface = themed(\.surface)
+    static let posFg = themed(\.posFg)
+    static let negFg = themed(\.negFg)
+    static let posBg = themed(\.posBg)
+    static let negBg = themed(\.negBg)
     static let backdrop = Color(red: 9 / 255, green: 9 / 255, blue: 11 / 255).opacity(0.5)
     /// Form width at which layouts switch to their wide form (the web container query).
     static let wideAt: CGFloat = 440
+}
+
+/// Developer preference (``Intunix/setTheme(_:)``) and the dark palette being drawn.
+final class ThemeStore: ObservableObject {
+    static let shared = ThemeStore()
+    @Published var preference: IntunixTheme = .auto
+    /// Dark palette from the author's background. Forms showing at once share it.
+    // shortcut: one dark background app-wide at a time; two inline forms with different dark backgrounds on one screen would share the last one.
+    static var dark = darkPalette(nil)
+}
+
+private func themed(_ k: KeyPath<Palette, RGB>) -> Color {
+    Color(UIColor { tc in
+        let c = (tc.userInterfaceStyle == .dark ? ThemeStore.dark : Palette.light)[keyPath: k]
+        return UIColor(red: c.r, green: c.g, blue: c.b, alpha: 1)
+    })
+}
+
+private func themed(_ k: KeyPath<Palette, (RGB, Double)>) -> Color {
+    Color(UIColor { tc in
+        let (c, a) = (tc.userInterfaceStyle == .dark ? ThemeStore.dark : Palette.light)[keyPath: k]
+        return UIColor(red: c.r, green: c.g, blue: c.b, alpha: a)
+    })
+}
+
+private struct FormDarkKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// Whether the enclosing form resolved to dark (``FormTheme``).
+    var formDark: Bool { get { self[FormDarkKey.self] } set { self[FormDarkKey.self] = newValue } }
+}
+
+/// Resolves light/dark for a form (developer → console lock → the screen it sits on) and
+/// sets the colour scheme the Crisp colours read.
+struct FormTheme: ViewModifier {
+    let brand: Brand
+    var explicit: IntunixTheme? = nil
+    @Environment(\.colorScheme) private var hostScheme
+    @ObservedObject private var store = ThemeStore.shared
+
+    func body(content: Content) -> some View {
+        let dark = resolveDark(explicit ?? store.preference, lock: brand.darkMode, hostDark: hostScheme == .dark)
+        if dark { ThemeStore.dark = darkPalette(brand.darkBackground) }
+        return content
+            .environment(\.colorScheme, dark ? .dark : .light)
+            .environment(\.formDark, dark)
+    }
 }
 
 extension Color {
@@ -34,8 +87,13 @@ private func rgb(_ hex: String?) -> (Double, Double, Double)? {
 
 struct BrandColors {
     let color: Color, soft: Color, ring: Color, onColor: Color
-    init(_ hex: String?) {
-        let c = rgb(hex) ?? (47 / 255, 148 / 255, 97 / 255)
+    /// In dark mode a brand too dark for the card is lightened (see ``accent(_:on:)``).
+    init(_ hex: String?, dark: Bool = false) {
+        var c = rgb(hex) ?? (47 / 255, 148 / 255, 97 / 255)
+        if dark {
+            let a = accent(RGB(c.0, c.1, c.2), on: ThemeStore.dark.card)
+            c = (a.r, a.g, a.b)
+        }
         func ch(_ x: Double) -> Double { x <= 0.03928 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4) }
         let lum = 0.2126 * ch(c.0) + 0.7152 * ch(c.1) + 0.0722 * ch(c.2)
         color = Color(red: c.0, green: c.1, blue: c.2)

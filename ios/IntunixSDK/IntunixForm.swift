@@ -14,6 +14,7 @@ public struct IntunixForm: View {
     private let context: [String: Any]?
     private let onFinished: (() -> Void)?
     private let onHeightChange: ((CGFloat) -> Void)?
+    private let theme: IntunixTheme?
     // Lives as long as this view's identity, so re-appearing (navigation, tabs) keeps answers.
     @StateObject private var model = InlineFormModel()
 
@@ -22,16 +23,17 @@ public struct IntunixForm: View {
     ///   - context: values sent with the response, on top of ``Intunix/setContext(_:)``
     ///   - onFinished: called once the visitor submits or closes the form
     ///   - onHeightChange: the form's height whenever it changes (0 once done), for hosts that size it
-    public init(form: String, context: [String: Any]? = nil, onFinished: (() -> Void)? = nil,
+    ///   - theme: light/dark for this form; nil = ``Intunix/setTheme(_:)``, the console lock, then the app
+    public init(form: String, context: [String: Any]? = nil, theme: IntunixTheme? = nil, onFinished: (() -> Void)? = nil,
                 onHeightChange: ((CGFloat) -> Void)? = nil) {
-        self.form = form; self.context = context; self.onFinished = onFinished; self.onHeightChange = onHeightChange
+        self.form = form; self.context = context; self.theme = theme; self.onFinished = onFinished; self.onHeightChange = onHeightChange
     }
 
     public var body: some View {
         // The ZStack always exists, so its task runs even while nothing is drawn yet.
         ZStack {
             Color.clear.frame(width: 0, height: 0)
-            if let host = model.host, !model.done { FeedbackFormView(host: host) }
+            if let host = model.host, !model.done { FeedbackFormView(host: host).modifier(FormTheme(brand: host.content.brand, explicit: theme)) }
         }
         .background(GeometryReader { g in Color.clear.preference(key: FormHeightPref.self, value: g.size.height) })
         .onPreferenceChange(FormHeightPref.self) { h in onHeightChange?(h) }
@@ -66,14 +68,24 @@ public final class IntunixFormUIView: UIView {
     /// The form's height in points whenever it changes (0 once done).
     public var onHeightChanged: ((CGFloat) -> Void)?
     private var hosting: UIHostingController<IntunixForm>?
+    private var current: (form: String, context: [String: Any]?)?
+
+    /// Light/dark for this form; nil = ``Intunix/setTheme(_:)``, the console lock, then the app.
+    public var theme: IntunixTheme? {
+        didSet { if let c = current, let h = hosting { h.rootView = makeView(c.form, c.context) } }
+    }
+
+    private func makeView(_ form: String, _ context: [String: Any]?) -> IntunixForm {
+        IntunixForm(form: form, context: context, theme: theme,
+                    onFinished: { [weak self] in self?.onFinished?() },
+                    onHeightChange: { [weak self] h in self?.onHeightChanged?(h) })
+    }
 
     /// Show a form (id or slug). Calling again with another form replaces it.
     public func setForm(_ form: String, context: [String: Any]? = nil) {
         hosting?.view.removeFromSuperview()
-        let view = IntunixForm(form: form, context: context,
-                               onFinished: { [weak self] in self?.onFinished?() },
-                               onHeightChange: { [weak self] h in self?.onHeightChanged?(h) })
-        let h = UIHostingController(rootView: view)
+        current = (form, context)
+        let h = UIHostingController(rootView: makeView(form, context))
         h.view.backgroundColor = .clear
         // Follow the form's natural height as it changes (pages, follow-up questions).
         if #available(iOS 16.0, *) { h.sizingOptions = .intrinsicContentSize }

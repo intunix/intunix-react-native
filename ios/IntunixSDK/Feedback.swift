@@ -1,6 +1,13 @@
 import Foundation
 
-package struct Brand { package var color: String; package var logoUrl: String? }
+package struct Brand {
+    package var color: String
+    package var logoUrl: String?
+    /// Console lock: "light", "dark", or nil (follow the app).
+    package var darkMode: String? = nil
+    /// #rrggbb card colour in dark mode; nil or invalid = default.
+    package var darkBackground: String? = nil
+}
 package struct ChoiceOption { package let value: String, label: String; package let emoji: String? }
 
 package struct FollowUpInput {
@@ -100,7 +107,8 @@ package func parseStep(_ o: JSONObject) -> Step? {
 package func parseFeedbackContent(_ o: JSONObject) -> FeedbackContent? {
     guard o.str("kind") == "feedback" else { return nil }
     let b = o.obj("brand")
-    var c = FeedbackContent(steps: o.objects("steps").compactMap(parseStep), brand: Brand(color: b?.str("color") ?? "#2F9461", logoUrl: b?.str("logoUrl")))
+    var c = FeedbackContent(steps: o.objects("steps").compactMap(parseStep), brand: Brand(color: b?.str("color") ?? "#2F9461", logoUrl: b?.str("logoUrl"),
+                                                                                           darkMode: b?.obj("dark")?.str("mode"), darkBackground: b?.obj("dark")?.str("background")))
     c.thanks = o.obj("thanks").map { ThanksConfig(enabled: $0.bool("enabled"), title: $0.str("title"), subtitle: $0.str("subtitle"), autoCloseMs: $0.int64("autoCloseMs")) }
     c.submitLabel = o.str("submitLabel"); c.nextLabel = o.str("nextLabel"); c.backLabel = o.str("backLabel")
     c.closable = o.bool("closable") != false

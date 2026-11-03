@@ -113,6 +113,7 @@ struct FormFrame: View {
                 }
             }
         }
+        .modifier(FormTheme(brand: host.content.brand))
         .onAppear { withAnimation(.easeOut(duration: 0.22)) { frame.visible = true } }
     }
 

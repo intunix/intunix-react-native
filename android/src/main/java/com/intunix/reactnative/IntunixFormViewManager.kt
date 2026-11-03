@@ -33,6 +33,9 @@ class IntunixFormViewManager : SimpleViewManager<IntunixFormView>() {
         (view.getTag(R_FORM) as? String)?.let { view.setForm(it, map) }
     }
 
+    @ReactProp(name = "theme")
+    fun setTheme(view: IntunixFormView, theme: String?) { view.theme = theme(theme) }
+
     override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> = mapOf(
         "topHeightChange" to mapOf("registrationName" to "onHeightChange"),
         "topFinished" to mapOf("registrationName" to "onFinished"),

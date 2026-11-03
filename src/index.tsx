@@ -17,7 +17,12 @@ export interface IntunixOptions {
   disableEventApi?: boolean;
   /** Native SDK logs (Logcat / Xcode console). */
   debug?: boolean;
+  /** Dark mode override. 'auto' (default) = the form's console lock, else follow the app. */
+  theme?: IntunixTheme;
 }
+
+/** Light or dark forms. 'auto' follows the console lock, else the app's light/dark setting. */
+export type IntunixTheme = 'auto' | 'light' | 'dark';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
 export type Properties = Record<string, JsonValue>;
@@ -36,11 +41,12 @@ const Native: {
   showForm(form: string, context: Properties | null): void;
   register(form: string): void;
   unregister(form: string): void;
+  setTheme(theme: IntunixTheme): void;
 } = NativeModules.Intunix ?? new Proxy({}, { get() { throw new Error(LINKING_ERROR); } });
 
 /** Intunix feedback forms. Call `initialize` once, at app start. */
 export const Intunix = {
-  version: '1.5.7',
+  version: '1.6.0',
   initialize: (apiKey: string, options: IntunixOptions = {}) => Native.initialize(apiKey, options),
   /** Identify the signed-in user. Call on every login. */
   identify: (userId: string, traits: Properties = {}) => Native.identify(userId, traits),
@@ -57,11 +63,14 @@ export const Intunix = {
   /** Make a form's triggers live. */
   register: (idOrSlug: string) => Native.register(idOrSlug),
   unregister: (idOrSlug: string) => Native.unregister(idOrSlug),
+  /** Force light or dark forms, or 'auto'. Open forms switch at once; beats the console lock. */
+  setTheme: (theme: IntunixTheme) => Native.setTheme(theme),
 };
 
 interface NativeFormProps extends ViewProps {
   form: string;
   formContext?: Properties | null;
+  theme?: IntunixTheme | null;
   onHeightChange?: (e: NativeSyntheticEvent<{ height: number }>) => void;
   onFinished?: (e: NativeSyntheticEvent<Record<string, never>>) => void;
 }
@@ -76,13 +85,15 @@ export interface IntunixFormProps extends ViewProps {
   context?: Properties;
   /** Called once the visitor submits or closes the form. */
   onFinished?: () => void;
+  /** Light/dark for this form; unset = `Intunix.setTheme`, the console lock, then the app. */
+  theme?: IntunixTheme;
 }
 
 /**
  * A form placed in your own layout (the web SDK's inline form). Takes the form's height,
  * draws nothing until it loads, and collapses once the visitor is done.
  */
-export function IntunixForm({ form, context, onFinished, style, ...rest }: IntunixFormProps) {
+export function IntunixForm({ form, context, onFinished, theme, style, ...rest }: IntunixFormProps) {
   // A native view needs a non-zero size before it can measure its content.
   const [height, setHeight] = useState(1);
   const View = nativeForm();
@@ -91,6 +102,7 @@ export function IntunixForm({ form, context, onFinished, style, ...rest }: Intun
       {...rest}
       form={form}
       formContext={context ?? null}
+      theme={theme ?? null}
       style={[style, { height }]}
       onHeightChange={(e: NativeSyntheticEvent<{ height: number }>) => setHeight(Math.max(1, e.nativeEvent.height))}
       onFinished={() => onFinished?.()}

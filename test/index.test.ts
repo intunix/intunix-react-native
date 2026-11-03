@@ -29,3 +29,12 @@ test('each call maps to its native method with defaults filled in', () => {
     ['reset', []],
   ]);
 });
+
+test('theme goes through init and setTheme', () => {
+  Intunix.initialize('ck_1', { theme: 'dark' });
+  Intunix.setTheme('light');
+  expect(calls).toEqual([
+    ['initialize', ['ck_1', { theme: 'dark' }]],
+    ['setTheme', ['light']],
+  ]);
+});

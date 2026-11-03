@@ -95,10 +95,11 @@ struct FeedbackFormView: View {
     /// Fixed layout width (snapshots); nil measures the space given.
     var fixedWidth: CGFloat? = nil
     @State private var measured: CGFloat = 0
+    @Environment(\.formDark) private var dark
 
     var body: some View {
         let state = host.state
-        let brand = BrandColors(host.content.brand.color)
+        let brand = BrandColors(host.content.brand.color, dark: dark)
         let width = fixedWidth ?? (measured > 0 ? measured : 320)
         let ending = state.phase == .thanks || state.phase == .review
         ZStack(alignment: .topTrailing) {
@@ -140,8 +141,6 @@ struct FeedbackFormView: View {
             }
         }
         .environment(\.brand, brand)
-        // Forms are light-only, as on web; keeps system text views white in dark mode.
-        .environment(\.colorScheme, .light)
         .environment(\.formWidth, width)
         .background(GeometryReader { g in Color.clear.preference(key: WidthPref.self, value: g.size.width) })
         .onPreferenceChange(WidthPref.self) { measured = $0 }

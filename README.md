@@ -44,4 +44,16 @@ form, put the component in your layout; it sizes itself to the form:
 <IntunixForm form="post-order" onFinished={() => setDone(true)} />
 ```
 
+### Dark mode
+
+Forms follow your app's light/dark setting, including `Appearance.setColorScheme`.
+Each form can also be locked to light or dark in the console. To override from code
+(code wins over the console):
+
+```ts
+Intunix.initialize('ck_your_client_key', { theme: 'auto' }); // 'auto' | 'light' | 'dark'
+Intunix.setTheme('dark');                                    // any time
+<IntunixForm form="post-order" theme="light" />
+```
+
 Options, triggers and what is sent are the same as the native SDKs — see their READMEs.

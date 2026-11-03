@@ -6,6 +6,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.intunix.sdk.Intunix
 import com.intunix.sdk.IntunixOptions
+import com.intunix.sdk.IntunixTheme
 
 /** Bridges `NativeModules.Intunix` to the native Intunix Android SDK. */
 class IntunixModule(private val ctx: ReactApplicationContext) : ReactContextBaseJavaModule(ctx) {
@@ -25,6 +26,7 @@ class IntunixModule(private val ctx: ReactApplicationContext) : ReactContextBase
                 screenTriggerDelayMs = (o["screenTriggerDelayMs"] as? Number)?.toLong() ?: 600,
                 disableEventApi = o["disableEventApi"] as? Boolean ?: false,
                 debug = o["debug"] as? Boolean ?: false,
+                theme = theme(o["theme"] as? String) ?: IntunixTheme.Auto,
             ),
         )
         currentActivity?.let { Intunix.attach(it) }
@@ -38,4 +40,8 @@ class IntunixModule(private val ctx: ReactApplicationContext) : ReactContextBase
     @ReactMethod fun showForm(form: String, context: ReadableMap?) { Intunix.showForm(form, context?.toHashMap()) }
     @ReactMethod fun register(form: String) { Intunix.register(form) }
     @ReactMethod fun unregister(form: String) { Intunix.unregister(form) }
+    @ReactMethod fun setTheme(theme: String) { theme(theme)?.let { Intunix.setTheme(it) } }
 }
+
+/** 'auto' | 'light' | 'dark' → IntunixTheme; anything else → null. */
+internal fun theme(s: String?): IntunixTheme? = IntunixTheme.values().firstOrNull { it.name.equals(s, ignoreCase = true) }

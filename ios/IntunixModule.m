@@ -11,11 +11,13 @@ RCT_EXTERN_METHOD(setContext:(nullable NSDictionary *)context)
 RCT_EXTERN_METHOD(showForm:(NSString *)form context:(nullable NSDictionary *)context)
 RCT_EXTERN_METHOD(register:(NSString *)form)
 RCT_EXTERN_METHOD(unregister:(NSString *)form)
+RCT_EXTERN_METHOD(setTheme:(NSString *)theme)
 @end
 
 @interface RCT_EXTERN_MODULE(IntunixFormViewManager, RCTViewManager)
 RCT_EXPORT_VIEW_PROPERTY(form, NSString)
 RCT_EXPORT_VIEW_PROPERTY(formContext, NSDictionary)
+RCT_EXPORT_VIEW_PROPERTY(theme, NSString)
 RCT_EXPORT_VIEW_PROPERTY(onHeightChange, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onFinished, RCTDirectEventBlock)
 @end

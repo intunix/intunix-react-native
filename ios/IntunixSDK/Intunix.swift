@@ -19,20 +19,22 @@ public struct IntunixOptions {
     public var disableEventApi: Bool
     /// Print SDK logs to the console.
     public var debug: Bool
+    /// Dark mode override; change later with ``Intunix/setTheme(_:)``. It beats the console lock.
+    public var theme: IntunixTheme
 
     public init(apiHost: String = "https://api.intunix.com", register: [String] = [], registerAll: Bool = false,
                 flushIntervalMs: UInt64 = 5000, maxQueueSize: Int = 100, screenTriggerDelayMs: UInt64 = 600,
-                disableEventApi: Bool = false, debug: Bool = false) {
+                disableEventApi: Bool = false, debug: Bool = false, theme: IntunixTheme = .auto) {
         self.apiHost = apiHost; self.register = register; self.registerAll = registerAll; self.flushIntervalMs = flushIntervalMs
         self.maxQueueSize = maxQueueSize; self.screenTriggerDelayMs = screenTriggerDelayMs
-        self.disableEventApi = disableEventApi; self.debug = debug
+        self.disableEventApi = disableEventApi; self.debug = debug; self.theme = theme
     }
 }
 
 /// Intunix feedback forms for iOS. Call ``initialize(apiKey:options:)`` once at launch.
 /// Every call is safe from any thread.
 public enum Intunix {
-    public static let version = "1.5.6"
+    public static let version = "1.6.0"
 
     @MainActor static var client: IntunixClient?
     @MainActor private static var presenter: OverlayPresenter?
@@ -49,6 +51,7 @@ public enum Intunix {
     public static func initialize(apiKey: String, options: IntunixOptions = IntunixOptions()) {
         main {
             guard client == nil else { return }
+            if options.theme != .auto { ThemeStore.shared.preference = options.theme }
             let p = OverlayPresenter()
             presenter = p
             let cfg = ClientConfig(apiKey: apiKey, apiHost: options.apiHost.trimmingCharacters(in: CharacterSet(charactersIn: "/")),
@@ -101,6 +104,9 @@ public enum Intunix {
 
     /// Show a form now (still subject to its cadence and targeting). Accepts the form id or slug.
     public static func showForm(_ idOrSlug: String, context: [String: Any]? = nil) { withClient { $0.showForm(idOrSlug, context: context) } }
+
+    /// Force light or dark forms, or `.auto` to follow the console lock and the app. Open forms switch at once.
+    public static func setTheme(_ theme: IntunixTheme) { main { ThemeStore.shared.preference = theme } }
 
     /// Make a form's triggers live.
     public static func register(_ idOrSlug: String) { withClient { $0.register(idOrSlug) } }

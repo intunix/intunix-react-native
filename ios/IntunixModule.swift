@@ -15,7 +15,8 @@ final class IntunixModule: NSObject {
             maxQueueSize: (o["maxQueueSize"] as? NSNumber)?.intValue ?? 100,
             screenTriggerDelayMs: UInt64((o["screenTriggerDelayMs"] as? NSNumber)?.intValue ?? 600),
             disableEventApi: o["disableEventApi"] as? Bool ?? false,
-            debug: o["debug"] as? Bool ?? false))
+            debug: o["debug"] as? Bool ?? false,
+            theme: (o["theme"] as? String).flatMap(IntunixTheme.init(rawValue:)) ?? .auto))
     }
 
     @objc func identify(_ userId: String, traits: NSDictionary) { Intunix.identify(userId, traits: traits as? [String: Any] ?? [:]) }
@@ -26,6 +27,7 @@ final class IntunixModule: NSObject {
     @objc func showForm(_ form: String, context: NSDictionary?) { Intunix.showForm(form, context: context as? [String: Any]) }
     @objc func register(_ form: String) { Intunix.register(form) }
     @objc func unregister(_ form: String) { Intunix.unregister(form) }
+    @objc func setTheme(_ theme: String) { if let t = IntunixTheme(rawValue: theme) { Intunix.setTheme(t) } }
 }
 
 /// The inline form as a React Native view; reports height and completion as events.
@@ -34,6 +36,7 @@ final class IntunixFormContainer: UIView {
     @objc var onFinished: RCTDirectEventBlock?
     @objc var form: NSString? { didSet { reload() } }
     @objc var formContext: NSDictionary? { didSet { reload() } }
+    @objc var theme: NSString? { didSet { inner.theme = (theme as String?).flatMap(IntunixTheme.init(rawValue:)) } }
     private let inner = IntunixFormUIView()
     private var loaded: String?
 

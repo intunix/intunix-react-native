@@ -108,11 +108,18 @@ private struct ChatHeader: View {
     }
 }
 
+private struct LogHeightPref: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 private struct ChatLog: View {
     let state: ConversationState
     let labels: ChatLabels
     @Environment(\.brand) private var brand
     private let bottom = "chat-bottom"
+    // The log is as tall as its content, up to 360, and shrinks when the card runs out of room (one scroll area).
+    @State private var contentHeight: CGFloat = 0
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -134,8 +141,10 @@ private struct ChatLog: View {
                     }
                     Color.clear.frame(height: 1).id(bottom)
                 }
+                .background(GeometryReader { g in Color.clear.preference(key: LogHeightPref.self, value: g.size.height) })
             }
-            .frame(maxHeight: 360)
+            .onPreferenceChange(LogHeightPref.self) { contentHeight = $0 }
+            .frame(maxHeight: min(contentHeight, 360))
             // After layout: the new bubble exists by the time this runs (not before it, as with an onChange of the state).
             .onChange(of: state.messages.count) { _ in
                 DispatchQueue.main.async { proxy.scrollTo(bottom, anchor: .bottom) }

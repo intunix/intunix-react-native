@@ -129,13 +129,21 @@ struct FormFrame: View {
     @State private var contentHeight: CGFloat = 0
 
     private func card<S: Shape>(_ shape: S, pad: CGFloat) -> some View {
-        ScrollView(showsIndicators: false) {
-            Group { if host.chat != nil { ChatForm(host: host) } else { FeedbackFormView(host: host) } }
-                .padding(pad)
-                .background(GeometryReader { g in Color.clear.preference(key: HeightPref.self, value: g.size.height) })
+        let limit = UIScreen.main.bounds.height * 0.85
+        return Group {
+            if host.chat != nil {
+                // A chat card doesn't scroll: its log takes the height that is left.
+                ChatForm(host: host).padding(pad).frame(maxHeight: limit)
+            } else {
+                ScrollView(showsIndicators: false) {
+                    FeedbackFormView(host: host)
+                        .padding(pad)
+                        .background(GeometryReader { g in Color.clear.preference(key: HeightPref.self, value: g.size.height) })
+                }
+                .frame(height: min(contentHeight, limit))
+                .onPreferenceChange(HeightPref.self) { contentHeight = $0 }
+            }
         }
-        .frame(height: min(contentHeight, UIScreen.main.bounds.height * 0.85))
-        .onPreferenceChange(HeightPref.self) { contentHeight = $0 }
         .background(shape.fill(Crisp.card).shadow(color: .black.opacity(0.14), radius: 20, y: 8).ignoresSafeArea(edges: modal ? [] : .bottom))
         .clipShape(shape)
     }

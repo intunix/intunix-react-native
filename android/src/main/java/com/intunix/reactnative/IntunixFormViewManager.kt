@@ -36,6 +36,9 @@ class IntunixFormViewManager : SimpleViewManager<IntunixFormView>() {
     @ReactProp(name = "theme")
     fun setTheme(view: IntunixFormView, theme: String?) { view.theme = theme(theme) }
 
+    @ReactProp(name = "locale")
+    fun setLocale(view: IntunixFormView, locale: String?) { view.locale = locale }
+
     override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> = mapOf(
         "topHeightChange" to mapOf("registrationName" to "onHeightChange"),
         "topFinished" to mapOf("registrationName" to "onFinished"),

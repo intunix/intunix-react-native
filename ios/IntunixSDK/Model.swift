@@ -75,6 +75,7 @@ package struct Experience {
     package let frequencyScope: String?
     package let autoActivate: Bool
     package let reviewRequest: ReviewRequestConfig?
+    package var conversation: ConversationConfig? = nil
 }
 
 package func parseWait(_ v: Any?) -> Wait? {
@@ -123,5 +124,6 @@ package func parseExperience(_ o: JSONObject) -> Experience? {
                       platforms: o.strings("platforms"), content: content,
                       triggers: o.objects("triggers").map(parseTrigger), cadence: cadence, targeting: targeting,
                       eligibility: eligibility, frequencyScope: o.str("frequencyScope"),
-                      autoActivate: o.bool("autoActivate") == true, reviewRequest: review)
+                      autoActivate: o.bool("autoActivate") == true, reviewRequest: review,
+                      conversation: parseConversationConfig(o.obj("conversation")))
 }

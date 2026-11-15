@@ -19,6 +19,8 @@ export interface IntunixOptions {
   debug?: boolean;
   /** Dark mode override. 'auto' (default) = the form's console lock, else follow the app. */
   theme?: IntunixTheme;
+  /** Developer default language (e.g. 'bn', 'pt-BR'); loses to the respondent's own earlier choice. Read when a form loads. */
+  locale?: string;
 }
 
 /** Light or dark forms. 'auto' follows the console lock, else the app's light/dark setting. */
@@ -42,6 +44,7 @@ const Native: {
   register(form: string): void;
   unregister(form: string): void;
   setTheme(theme: IntunixTheme): void;
+  setLocale(code: string): void;
 } = NativeModules.Intunix ?? new Proxy({}, { get() { throw new Error(LINKING_ERROR); } });
 
 /** Intunix feedback forms. Call `initialize` once, at app start. */
@@ -65,12 +68,18 @@ export const Intunix = {
   unregister: (idOrSlug: string) => Native.unregister(idOrSlug),
   /** Force light or dark forms, or 'auto'. Open forms switch at once; beats the console lock. */
   setTheme: (theme: IntunixTheme) => Native.setTheme(theme),
+  /**
+   * The app's language changed: forms shown from now on use `code` (multi-language forms only),
+   * replacing the respondent's remembered choice. Already-loaded forms are not re-localized.
+   */
+  setLocale: (code: string) => Native.setLocale(code),
 };
 
 interface NativeFormProps extends ViewProps {
   form: string;
   formContext?: Properties | null;
   theme?: IntunixTheme | null;
+  locale?: string | null;
   onHeightChange?: (e: NativeSyntheticEvent<{ height: number }>) => void;
   onFinished?: (e: NativeSyntheticEvent<Record<string, never>>) => void;
 }
@@ -87,13 +96,15 @@ export interface IntunixFormProps extends ViewProps {
   onFinished?: () => void;
   /** Light/dark for this form; unset = `Intunix.setTheme`, the console lock, then the app. */
   theme?: IntunixTheme;
+  /** Language for this form; unset = `Intunix.setLocale`/`locale` option, then the respondent's choice. Read when the form loads; changing it later does not re-localize it. */
+  locale?: string;
 }
 
 /**
  * A form placed in your own layout (the web SDK's inline form). Takes the form's height,
  * draws nothing until it loads, and collapses once the visitor is done.
  */
-export function IntunixForm({ form, context, onFinished, theme, style, ...rest }: IntunixFormProps) {
+export function IntunixForm({ form, context, onFinished, theme, locale, style, ...rest }: IntunixFormProps) {
   // A native view needs a non-zero size before it can measure its content.
   const [height, setHeight] = useState(1);
   const View = nativeForm();
@@ -103,6 +114,7 @@ export function IntunixForm({ form, context, onFinished, theme, style, ...rest }
       form={form}
       formContext={context ?? null}
       theme={theme ?? null}
+      locale={locale ?? null}
       style={[style, { height }]}
       onHeightChange={(e: NativeSyntheticEvent<{ height: number }>) => setHeight(Math.max(1, e.nativeEvent.height))}
       onFinished={() => onFinished?.()}

@@ -27,6 +27,7 @@ class IntunixModule(private val ctx: ReactApplicationContext) : ReactContextBase
                 disableEventApi = o["disableEventApi"] as? Boolean ?: false,
                 debug = o["debug"] as? Boolean ?: false,
                 theme = theme(o["theme"] as? String) ?: IntunixTheme.Auto,
+                locale = o["locale"] as? String,
             ),
         )
         currentActivity?.let { Intunix.attach(it) }
@@ -41,6 +42,7 @@ class IntunixModule(private val ctx: ReactApplicationContext) : ReactContextBase
     @ReactMethod fun register(form: String) { Intunix.register(form) }
     @ReactMethod fun unregister(form: String) { Intunix.unregister(form) }
     @ReactMethod fun setTheme(theme: String) { theme(theme)?.let { Intunix.setTheme(it) } }
+    @ReactMethod fun setLocale(code: String) { Intunix.setLocale(code) }
 }
 
 /** 'auto' | 'light' | 'dark' → IntunixTheme; anything else → null. */

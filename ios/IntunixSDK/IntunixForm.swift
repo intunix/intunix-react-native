@@ -15,6 +15,7 @@ public struct IntunixForm: View {
     private let onFinished: (() -> Void)?
     private let onHeightChange: ((CGFloat) -> Void)?
     private let theme: IntunixTheme?
+    private let locale: String?
     // Lives as long as this view's identity, so re-appearing (navigation, tabs) keeps answers.
     @StateObject private var model = InlineFormModel()
 
@@ -24,16 +25,27 @@ public struct IntunixForm: View {
     ///   - onFinished: called once the visitor submits or closes the form
     ///   - onHeightChange: the form's height whenever it changes (0 once done), for hosts that size it
     ///   - theme: light/dark for this form; nil = ``Intunix/setTheme(_:)``, the console lock, then the app
+    ///   - locale: language code for this form (`"bn"`, `"pt-BR"`); nil = ``Intunix/setLocale(_:)``, the respondent's choice, then the device
+    public init(form: String, context: [String: Any]? = nil, theme: IntunixTheme? = nil, locale: String? = nil, onFinished: (() -> Void)? = nil,
+                onHeightChange: ((CGFloat) -> Void)? = nil) {
+        self.form = form; self.context = context; self.theme = theme; self.locale = locale; self.onFinished = onFinished; self.onHeightChange = onHeightChange
+    }
+
+    /// The 1.6.x initializer, kept so existing call sites and binaries keep working.
+    @_disfavoredOverload
     public init(form: String, context: [String: Any]? = nil, theme: IntunixTheme? = nil, onFinished: (() -> Void)? = nil,
                 onHeightChange: ((CGFloat) -> Void)? = nil) {
-        self.form = form; self.context = context; self.theme = theme; self.onFinished = onFinished; self.onHeightChange = onHeightChange
+        self.init(form: form, context: context, theme: theme, locale: nil, onFinished: onFinished, onHeightChange: onHeightChange)
     }
 
     public var body: some View {
         // The ZStack always exists, so its task runs even while nothing is drawn yet.
         ZStack {
             Color.clear.frame(width: 0, height: 0)
-            if let host = model.host, !model.done { FeedbackFormView(host: host).modifier(FormTheme(brand: host.content.brand, explicit: theme)) }
+            if let host = model.host, !model.done {
+                Group { if host.chat != nil { ChatForm(host: host) } else { FeedbackFormView(host: host) } }
+                    .modifier(FormTheme(brand: host.content.brand, explicit: theme))
+            }
         }
         .background(GeometryReader { g in Color.clear.preference(key: FormHeightPref.self, value: g.size.height) })
         .onPreferenceChange(FormHeightPref.self) { h in onHeightChange?(h) }
@@ -43,12 +55,12 @@ public struct IntunixForm: View {
     @MainActor private func load() async {
         guard model.host == nil, !model.done else { return }
         guard let client = await Intunix.readyClient(), let exp = await client.resolve(form),
-              let content = parseFeedbackContent(exp.content) else { return }
+              parseFeedbackContent(exp.content) != nil else { return }
         let ctx = client.contextFor(context)
         let responseId = newId()
         let finished = onFinished
         let model = self.model
-        model.host = FormHost(exp: exp, content: content, callbacks: client.callbacks(exp, ctx, responseId),
+        model.host = FormHost(exp: exp, callbacks: client.callbacks(exp, ctx, responseId, formLocale: locale),
                               openUrl: OverlayPresenter.openUrl) { result in
             client.settle(exp, ctx, result, responseId)
             model.done = true
@@ -70,13 +82,18 @@ public final class IntunixFormUIView: UIView {
     private var hosting: UIHostingController<IntunixForm>?
     private var current: (form: String, context: [String: Any]?)?
 
+    /// Language code for this form; nil = ``Intunix/setLocale(_:)``, the respondent's choice, then the device.
+    public var locale: String? {
+        didSet { if let c = current, let h = hosting { h.rootView = makeView(c.form, c.context) } }
+    }
+
     /// Light/dark for this form; nil = ``Intunix/setTheme(_:)``, the console lock, then the app.
     public var theme: IntunixTheme? {
         didSet { if let c = current, let h = hosting { h.rootView = makeView(c.form, c.context) } }
     }
 
     private func makeView(_ form: String, _ context: [String: Any]?) -> IntunixForm {
-        IntunixForm(form: form, context: context, theme: theme,
+        IntunixForm(form: form, context: context, theme: theme, locale: locale,
                     onFinished: { [weak self] in self?.onFinished?() },
                     onHeightChange: { [weak self] h in self?.onHeightChanged?(h) })
     }

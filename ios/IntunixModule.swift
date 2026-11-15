@@ -16,7 +16,8 @@ final class IntunixModule: NSObject {
             screenTriggerDelayMs: UInt64((o["screenTriggerDelayMs"] as? NSNumber)?.intValue ?? 600),
             disableEventApi: o["disableEventApi"] as? Bool ?? false,
             debug: o["debug"] as? Bool ?? false,
-            theme: (o["theme"] as? String).flatMap(IntunixTheme.init(rawValue:)) ?? .auto))
+            theme: (o["theme"] as? String).flatMap(IntunixTheme.init(rawValue:)) ?? .auto,
+            locale: o["locale"] as? String))
     }
 
     @objc func identify(_ userId: String, traits: NSDictionary) { Intunix.identify(userId, traits: traits as? [String: Any] ?? [:]) }
@@ -28,6 +29,7 @@ final class IntunixModule: NSObject {
     @objc func register(_ form: String) { Intunix.register(form) }
     @objc func unregister(_ form: String) { Intunix.unregister(form) }
     @objc func setTheme(_ theme: String) { if let t = IntunixTheme(rawValue: theme) { Intunix.setTheme(t) } }
+    @objc func setLocale(_ code: String) { Intunix.setLocale(code) }
 }
 
 /// The inline form as a React Native view; reports height and completion as events.
@@ -37,6 +39,8 @@ final class IntunixFormContainer: UIView {
     @objc var form: NSString? { didSet { reload() } }
     @objc var formContext: NSDictionary? { didSet { reload() } }
     @objc var theme: NSString? { didSet { inner.theme = (theme as String?).flatMap(IntunixTheme.init(rawValue:)) } }
+    // Read when the form loads; props arrive before didMoveToWindow, so this is set before setForm runs.
+    @objc var locale: NSString? { didSet { inner.locale = locale as String? } }
     private let inner = IntunixFormUIView()
     private var loaded: String?
 

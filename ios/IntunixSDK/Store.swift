@@ -22,6 +22,37 @@ package final class DefaultsStore: KeyValueStore {
     package func remove(_ key: String) { d.removeObject(forKey: key) }
 }
 
+/// The language a respondent picked in a multi-language form, remembered across forms.
+package final class LanguageStore {
+    private let store: KeyValueStore
+    private static let key = "intunix:lang"
+    package init(_ store: KeyValueStore) { self.store = store }
+    package func remembered() -> String? { store.get(Self.key) }
+    package func remember(_ code: String) { store.set(Self.key, code) }
+    package func clear() { store.remove(Self.key) }
+}
+
+/// One conversation id per form, so a reopened form resumes; cleared when a show ends.
+package final class ConversationIds {
+    private let store: KeyValueStore
+    private static let key = "intunix:conv"
+    package init(_ store: KeyValueStore) { self.store = store }
+    package func idFor(_ formId: String) -> String {
+        var all = read()
+        if let id = all.str(formId) { return id }
+        let id = newId()
+        all[formId] = id
+        store.set(Self.key, jsonString(all))
+        return id
+    }
+    package func clear(_ formId: String) {
+        var all = read()
+        if all.removeValue(forKey: formId) != nil { store.set(Self.key, jsonString(all)) }
+    }
+    package func clearAll() { store.remove(Self.key) }
+    private func read() -> JSONObject { parseJSON(store.get(Self.key)) as? JSONObject ?? [:] }
+}
+
 package func newId() -> String { UUID().uuidString.lowercased() }
 
 package func nowMs() -> Int64 { Int64((Date().timeIntervalSince1970 * 1000).rounded()) }

@@ -39,6 +39,8 @@ package struct Step {
     package var pmfOptions: [ChoiceOption]? = nil
     package var input: FollowUpInput? = nil
     package var icons: String? = nil
+    /// Asks the conversation service for follow-up questions after this step.
+    package var aiFollowUp = false
     package init(id: String, kind: String, title: String, required: Bool? = nil, max: Int? = nil, input: FollowUpInput? = nil) {
         self.id = id; self.kind = kind; self.title = title; self.required = required; self.max = max; self.input = input
     }
@@ -46,12 +48,15 @@ package struct Step {
 
 package struct ThanksConfig { package let enabled: Bool?, title: String?, subtitle: String?; package let autoCloseMs: Int64? }
 
+package struct ChatTexts { package let sendLabel, skipLabel, endLabel, typingLabel, logLabel: String? }
+
 package struct FeedbackContent {
     package var steps: [Step]
     package var brand: Brand
     package var thanks: ThanksConfig? = nil
     package var submitLabel: String? = nil, nextLabel: String? = nil, backLabel: String? = nil
     package var closable = true
+    package var chat: ChatTexts? = nil
 }
 
 package enum Defaults {
@@ -70,6 +75,9 @@ package enum Defaults {
     package static let thanksSubtitle = "We read every response — really."
     package static let thanksAutoCloseMs: Int64 = 2500
     package static let submit = "Submit", next = "Next", back = "Back"
+    package static let chatSend = "Send", chatSkip = "Skip", chatEnd = "End conversation"
+    package static let chatTyping = "{name} is typing", chatLog = "Conversation with {name}"
+    package static let answer = "Type your answer…"
 }
 
 private let kinds: Set<String> = ["nps", "enps", "star", "csat", "ces", "smileys", "thumbs", "pmf", "followup"]
@@ -101,6 +109,7 @@ package func parseStep(_ o: JSONObject) -> Step? {
     s.pmfOptions = o.arr("options") != nil ? parseOptions(o.objects("options")) : nil
     s.input = input
     s.icons = o.str("icons")
+    s.aiFollowUp = o.bool("aiFollowUp") == true
     return s
 }
 
@@ -112,6 +121,8 @@ package func parseFeedbackContent(_ o: JSONObject) -> FeedbackContent? {
     c.thanks = o.obj("thanks").map { ThanksConfig(enabled: $0.bool("enabled"), title: $0.str("title"), subtitle: $0.str("subtitle"), autoCloseMs: $0.int64("autoCloseMs")) }
     c.submitLabel = o.str("submitLabel"); c.nextLabel = o.str("nextLabel"); c.backLabel = o.str("backLabel")
     c.closable = o.bool("closable") != false
+    c.chat = o.obj("chat").map { ChatTexts(sendLabel: $0.str("sendLabel"), skipLabel: $0.str("skipLabel"), endLabel: $0.str("endLabel"),
+                                           typingLabel: $0.str("typingLabel"), logLabel: $0.str("logLabel")) }
     return c
 }
 
@@ -144,4 +155,12 @@ package struct Answer: Equatable {
     package var wire: JSONObject { ["stepId": stepId, "kind": kind, "value": value.wire] }
 }
 
-package struct FeedbackResponse { package let answers: [Answer]; package let completed: Bool; package let durationMs: Int64 }
+package struct FeedbackResponse {
+    package let answers: [Answer]; package let completed: Bool; package let durationMs: Int64
+    package var conversationId: String? = nil
+    package var language: String? = nil
+    package init(answers: [Answer], completed: Bool, durationMs: Int64, conversationId: String? = nil, language: String? = nil) {
+        self.answers = answers; self.completed = completed; self.durationMs = durationMs
+        self.conversationId = conversationId; self.language = language
+    }
+}

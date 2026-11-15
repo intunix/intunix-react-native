@@ -21,13 +21,25 @@ public struct IntunixOptions {
     public var debug: Bool
     /// Dark mode override; change later with ``Intunix/setTheme(_:)``. It beats the console lock.
     public var theme: IntunixTheme
+    /// The app's language (`"bn"`, `"pt-BR"`) for multi-language forms; change later with ``Intunix/setLocale(_:)``.
+    /// nil follows the respondent's remembered choice, then the device language.
+    public var locale: String?
 
     public init(apiHost: String = "https://api.intunix.com", register: [String] = [], registerAll: Bool = false,
                 flushIntervalMs: UInt64 = 5000, maxQueueSize: Int = 100, screenTriggerDelayMs: UInt64 = 600,
-                disableEventApi: Bool = false, debug: Bool = false, theme: IntunixTheme = .auto) {
+                disableEventApi: Bool = false, debug: Bool = false, theme: IntunixTheme = .auto, locale: String? = nil) {
         self.apiHost = apiHost; self.register = register; self.registerAll = registerAll; self.flushIntervalMs = flushIntervalMs
         self.maxQueueSize = maxQueueSize; self.screenTriggerDelayMs = screenTriggerDelayMs
-        self.disableEventApi = disableEventApi; self.debug = debug; self.theme = theme
+        self.disableEventApi = disableEventApi; self.debug = debug; self.theme = theme; self.locale = locale
+    }
+
+    /// The 1.6.x initializer, kept so existing call sites and binaries keep working.
+    @_disfavoredOverload
+    public init(apiHost: String = "https://api.intunix.com", register: [String] = [], registerAll: Bool = false,
+                flushIntervalMs: UInt64 = 5000, maxQueueSize: Int = 100, screenTriggerDelayMs: UInt64 = 600,
+                disableEventApi: Bool = false, debug: Bool = false, theme: IntunixTheme = .auto) {
+        self.init(apiHost: apiHost, register: register, registerAll: registerAll, flushIntervalMs: flushIntervalMs, maxQueueSize: maxQueueSize,
+                  screenTriggerDelayMs: screenTriggerDelayMs, disableEventApi: disableEventApi, debug: debug, theme: theme, locale: nil)
     }
 }
 
@@ -58,7 +70,7 @@ public enum Intunix {
                                    registerAll: options.registerAll, register: options.register,
                                    flushIntervalMs: options.flushIntervalMs, maxQueueSize: options.maxQueueSize,
                                    screenTriggerDelayMs: options.screenTriggerDelayMs, disableEventApi: options.disableEventApi,
-                                   sdkVersion: version)
+                                   sdkVersion: version, locale: options.locale)
             let debug = options.debug
             let c = IntunixClient(cfg: cfg, store: DefaultsStore(), presenter: p) { if debug { print("[Intunix] \($0)") } }
             client = c
@@ -107,6 +119,9 @@ public enum Intunix {
 
     /// Force light or dark forms, or `.auto` to follow the console lock and the app. Open forms switch at once.
     public static func setTheme(_ theme: IntunixTheme) { main { ThemeStore.shared.preference = theme } }
+
+    /// The app's language changed: later forms use it (multi-language forms only), replacing the respondent's remembered choice.
+    public static func setLocale(_ code: String) { withClient { $0.setLocale(code) } }
 
     /// Make a form's triggers live.
     public static func register(_ idOrSlug: String) { withClient { $0.register(idOrSlug) } }

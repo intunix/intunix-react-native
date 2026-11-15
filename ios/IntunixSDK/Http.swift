@@ -6,6 +6,11 @@ import FoundationNetworking
 package let apiPath = "/nikonudge/api/v1"
 package let channel = "mobile_sdk"
 
+/// A path segment, percent-encoded.
+package func enc(_ s: String) -> String {
+    s.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-_.~"))) ?? s
+}
+
 package struct HttpError: Error { package let status: Int }
 
 package struct HttpResponse { package let status: Int; package let body: Data?; package let etag: String? }

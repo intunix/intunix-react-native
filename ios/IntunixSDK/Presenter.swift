@@ -1,6 +1,7 @@
 #if os(iOS)
 import SwiftUI
 import UIKit
+import Combine
 
 @MainActor
 final class FrameState: ObservableObject {
@@ -42,7 +43,7 @@ final class OverlayPresenter: FormPresenter {
             }
             let frame = FrameState()
             weak var weakVC: FormHostingController?
-            let host = FormHost(exp: exp, content: content, callbacks: callbacks, openUrl: Self.openUrl) { result in
+            let host = FormHost(exp: exp, callbacks: callbacks, openUrl: Self.openUrl) { result in
                 withAnimation(.easeIn(duration: 0.18)) { frame.visible = false }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     weakVC?.onGone = nil
@@ -53,6 +54,13 @@ final class OverlayPresenter: FormPresenter {
             let vc = FormHostingController(rootView: FormFrame(modal: exp.type == "modal", host: host, frame: frame))
             vc.modalPresentationStyle = .overFullScreen
             vc.view.backgroundColor = .clear
+            // UIKit views inside (text editors, keyboard) follow the form's language direction, not the device's.
+            let direction = { [weak host, weak vc] in
+                guard let l = host?.language, l.decorated else { return }
+                vc?.view.semanticContentAttribute = l.rtl ? .forceRightToLeft : .forceLeftToRight
+            }
+            direction()
+            vc.directionSync = host.objectWillChange.sink { _ in DispatchQueue.main.async(execute: direction) }
             // The app dismissed us (or its whole stack): treat it as closing the form.
             vc.onGone = { [weak host] in host?.close() }
             weakVC = vc
@@ -80,6 +88,7 @@ final class OverlayPresenter: FormPresenter {
 
 final class FormHostingController: UIHostingController<FormFrame> {
     var onGone: (() -> Void)?
+    var directionSync: AnyCancellable?
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if isBeingDismissed || presentingViewController == nil { onGone?(); onGone = nil }
@@ -121,7 +130,7 @@ struct FormFrame: View {
 
     private func card<S: Shape>(_ shape: S, pad: CGFloat) -> some View {
         ScrollView(showsIndicators: false) {
-            FeedbackFormView(host: host)
+            Group { if host.chat != nil { ChatForm(host: host) } else { FeedbackFormView(host: host) } }
                 .padding(pad)
                 .background(GeometryReader { g in Color.clear.preference(key: HeightPref.self, value: g.size.height) })
         }

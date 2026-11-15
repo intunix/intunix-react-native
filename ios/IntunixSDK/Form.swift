@@ -1,87 +1,41 @@
 #if os(iOS)
 import SwiftUI
 
-private let autoSubmitKinds: Set<String> = ["thumbs", "pmf", "smileys"]
-
-/// Form state and the rules of FeedbackExperience (React), independent of where it is drawn.
+/// SwiftUI face of ``FormController``: forwards state and bumps `version` so views redraw.
 @MainActor
 final class FormHost: ObservableObject {
-    let exp: Experience
-    let content: FeedbackContent
-    private let cb: RenderCallbacks
-    private let runner: FeedbackRunner
-    private let onResult: (ExperienceResult) -> Void
-    private var settled = false
-    private(set) var review: ReviewPresenter?
-    @Published private(set) var state: RunnerState
+    let core: FormController
+    @Published private(set) var version = 0
 
-    init(exp: Experience, content: FeedbackContent, callbacks: RenderCallbacks, openUrl: @escaping (String) -> Bool,
+    init(exp: Experience, callbacks: RenderCallbacks, openUrl: @escaping (String) -> Bool, device: [String] = deviceLanguages(),
          onResult: @escaping (ExperienceResult) -> Void) {
-        self.exp = exp; self.content = content; cb = callbacks; self.onResult = onResult
-        runner = FeedbackRunner(content, review: exp.reviewRequest)
-        state = runner.state()
-        review = ReviewPresenter.create(exp.reviewRequest, formId: exp.id, clientResponseId: callbacks.clientResponseId,
-                                        brandColor: content.brand.color, emit: callbacks.onReviewEvent, openUrl: openUrl) { [weak self] in self?.finish() }
+        core = FormController(exp: exp, callbacks: callbacks, openUrl: openUrl, device: device, onResult: onResult)
+        core.onChange = { [weak self] in self?.version += 1 }
     }
 
-    var closable: Bool { content.closable }
-    func isLastPage() -> Bool { runner.isLastPage() }
-    private var impressed = false
-    /// Once per form instance, however often the view appears (navigation, tabs, lists).
-    func impression() {
-        guard !impressed else { return }
-        impressed = true
-        cb.onImpression()
-    }
-
-    private func bump() { state = runner.state() }
-
-    private func finalize(_ r: ExperienceResult) {
-        guard !settled else { return }
-        settled = true
-        onResult(r)
-    }
-
-    func finish() {
-        finalize(ExperienceResult(outcome: "responded", response: runner.finish()))
-        bump()
-    }
-
-    func close() {
-        guard !settled else { return }
-        switch runner.state().phase {
-        case .review: if let review { review.onSkip() } else { finish() }
-        case .thanks, .done: finish()
-        case .running:
-            let r = runner.dismiss()
-            cb.onDismiss()
-            finalize(ExperienceResult(outcome: r.answers.isEmpty ? "dismissed" : "responded", response: r))
-            bump()
-        }
-    }
-
-    /// Thumbs / PMF / smileys submit on tap only when the whole form is that one question.
-    func autoSubmit() -> Bool {
-        let s = runner.state()
-        guard s.visibleSteps.count == 1, s.pageSteps.count == 1, let only = s.pageSteps.first else { return false }
-        return autoSubmitKinds.contains(only.kind) && (only.page == nil || content.steps.filter { $0.page == only.page }.count == 1)
-    }
-
-    func onChange(_ stepId: String, _ answer: Answer?) {
-        let auto = autoSubmit()
-        if let answer { runner.record(answer) } else { runner.clear(stepId) }
-        if auto && answer != nil { submitPage() } else { bump() }
-    }
-
-    func submitPage() {
-        let s = runner.state()
-        guard isPageValid(s.pageSteps, s.answers) else { return }
-        for step in s.pageSteps { if let a = s.answers.first(where: { $0.stepId == step.id }) { cb.onResponse(a) } }
-        runner.submitPage()
-        bump()
-    }
-
-    func back() { runner.back(); bump() }
+    var exp: Experience { core.exp }
+    var content: FeedbackContent { core.content }
+    var language: FormLanguage { core.language }
+    var review: ReviewPresenter? { core.review }
+    var closable: Bool { core.closable }
+    var probing: Bool { core.probing }
+    var chat: ConversationController? { core.chat }
+    var chatReview: Bool { core.chatReview }
+    var state: RunnerState { core.state() }
+    var chatState: ConversationState { core.chatState() }
+    var chatInput: Step? { core.chatInput() }
+    var chatLabels: ChatLabels { core.labels() }
+    func isLastPage() -> Bool { core.isLastPage() }
+    func autoSubmit() -> Bool { core.autoSubmit() }
+    func impression() { core.impression() }
+    func finish() { core.finish() }
+    func close() { core.close() }
+    func onChange(_ stepId: String, _ answer: Answer?) { core.onAnswer(stepId, answer) }
+    func submitPage() { core.submitPage() }
+    func back() { core.back() }
+    func sendChat(_ a: Answer) { core.sendChat(a) }
+    func skipChat() { core.skipChat() }
+    func switchLanguage(_ code: String) { core.switchLanguage(code) }
 }
 
 private struct WidthPref: PreferenceKey {
@@ -102,13 +56,16 @@ struct FeedbackFormView: View {
         let brand = BrandColors(host.content.brand.color, dark: dark)
         let width = fixedWidth ?? (measured > 0 ? measured : 320)
         let ending = state.phase == .thanks || state.phase == .review
+        let texts = host.language.texts
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 0) {
-                Header(pageIndex: state.pageIndex, pageCount: state.pageCount, paged: state.paged, ending: ending, closable: host.closable)
+                Header(pageIndex: state.pageIndex, pageCount: state.pageCount, paged: state.paged, ending: ending, closable: host.closable,
+                       texts: texts, language: state.phase == .running && host.language.multi ? switcher(texts) : nil)
                 if state.phase == .review, let review = host.review {
                     ReviewCard(p: review)
                 } else if state.phase == .thanks {
-                    Thanks(title: host.content.thanks?.title ?? Defaults.thanksTitle, subtitle: host.content.thanks?.subtitle ?? Defaults.thanksSubtitle)
+                    Thanks(title: host.content.thanks?.title ?? texts?.thanksTitle ?? Defaults.thanksTitle,
+                           subtitle: host.content.thanks?.subtitle ?? texts?.thanksSubtitle ?? Defaults.thanksSubtitle)
                 } else if !state.pageSteps.isEmpty {
                     ForEach(Array(state.pageSteps.enumerated()), id: \.element.id) { i, step in
                         VStack(alignment: .leading, spacing: 0) {
@@ -123,9 +80,9 @@ struct FeedbackFormView: View {
                     }
                     if !host.autoSubmit() {
                         Footer(showBack: state.pageIndex > 0,
-                               backLabel: host.content.backLabel ?? Defaults.back,
-                               nextLabel: host.isLastPage() ? host.content.submitLabel ?? Defaults.submit : host.content.nextLabel ?? Defaults.next,
-                               nextEnabled: isPageValid(state.pageSteps, state.answers),
+                               backLabel: host.content.backLabel ?? texts?.back ?? Defaults.back,
+                               nextLabel: host.isLastPage() ? host.content.submitLabel ?? texts?.submit ?? Defaults.submit : host.content.nextLabel ?? texts?.next ?? Defaults.next,
+                               nextEnabled: isPageValid(state.pageSteps, state.answers) && !host.probing,
                                onBack: host.back, onNext: host.submitPage)
                     }
                 }
@@ -136,16 +93,21 @@ struct FeedbackFormView: View {
                     Text("×").crispFont(22, .regular, Crisp.muted).frame(width: 36, height: 36)
                 }
                 .buttonStyle(TapStyle())
-                .accessibilityLabel("Close")
+                .accessibilityLabel(texts?.close ?? "Close")
                 .offset(x: 8, y: -8)
             }
         }
         .environment(\.brand, brand)
         .environment(\.formWidth, width)
+        .modifier(RtlRoot(language: host.language))
         .background(GeometryReader { g in Color.clear.preference(key: WidthPref.self, value: g.size.width) })
         .onPreferenceChange(WidthPref.self) { measured = $0 }
         .onAppear { host.impression() }
         .task(id: state.phase) { await phaseChanged(state.phase) }
+    }
+
+    private func switcher(_ texts: BuiltinTexts?) -> LanguageSwitcher? {
+        texts.map { LanguageSwitcher(current: host.language.lang, options: host.language.options, label: $0.language, onChange: host.switchLanguage) }
     }
 
     @MainActor private func phaseChanged(_ phase: Phase) async {
@@ -165,20 +127,29 @@ struct FeedbackFormView: View {
 
 private struct Header: View {
     let pageIndex: Int, pageCount: Int, paged: Bool, ending: Bool, closable: Bool
+    var texts: BuiltinTexts? = nil
+    var language: LanguageSwitcher? = nil
     @Environment(\.brand) var brand
     var body: some View {
-        if pageCount <= 1 {
+        if pageCount <= 1 && language == nil {
             Spacer().frame(height: closable ? 30 : 0)
         } else {
+            let label = pageLabel(texts, ending: ending, paged: paged, index: pageIndex, count: pageCount)
             VStack(alignment: .leading, spacing: 10) {
-                Text(ending ? "Done" : "\(paged ? "Page" : "Question") \(pageIndex + 1) of \(pageCount)")
-                    .crispFont(12, .semibold, Crisp.muted).padding(.trailing, 36).frame(minHeight: 24)
-                HStack(spacing: 4) {
-                    ForEach(0..<pageCount, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 4).fill(ending || i <= pageIndex ? brand.color : Crisp.track).frame(height: 4)
-                    }
+                HStack {
+                    if pageCount > 1 || language == nil { Text(label).crispFont(12, .semibold, Crisp.muted).frame(minHeight: 24) }
+                    Spacer(minLength: 0)
+                    if let language { language }
                 }
-                .padding(.bottom, 18)
+                .padding(.trailing, closable || language == nil ? 36 : 0)
+                if pageCount > 1 {
+                    HStack(spacing: 4) {
+                        ForEach(0..<pageCount, id: \.self) { i in
+                            RoundedRectangle(cornerRadius: 4).fill(ending || i <= pageIndex ? brand.color : Crisp.track).frame(height: 4)
+                        }
+                    }
+                    .padding(.bottom, 18)
+                }
             }
         }
     }
@@ -189,13 +160,15 @@ private struct Footer: View {
     let onBack: () -> Void, onNext: () -> Void
     @Environment(\.brand) var brand
     @Environment(\.formWidth) var width
+    @Environment(\.layoutDirection) var direction
 
     var body: some View {
         let wide = width >= Crisp.wideAt
+        let arrow = direction == .rightToLeft ? "→" : "←"
         HStack(spacing: 10) {
             if showBack {
                 Button(action: onBack) {
-                    Text(wide ? "←  \(backLabel)" : "←").crispFont(15, .semibold, Crisp.scaleText)
+                    Text(wide ? "\(arrow)  \(backLabel)" : arrow).crispFont(15, .semibold, Crisp.scaleText)
                         .padding(.horizontal, wide ? 18 : 0)
                         .frame(minWidth: 50, minHeight: 50)
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Crisp.border, lineWidth: 1.5))
@@ -238,7 +211,7 @@ private struct Thanks: View {
     }
 }
 
-private struct ReviewCard: View {
+struct ReviewCard: View {
     let p: ReviewPresenter
     @Environment(\.brand) var brand
     var body: some View {

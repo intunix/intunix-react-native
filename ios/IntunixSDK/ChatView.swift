@@ -94,7 +94,7 @@ private struct ChatHeader: View {
                     Spacer(minLength: 0)
                     if let language { language }
                 }
-                .padding(.trailing, closable ? 36 : 0)
+                .padding(.trailing, closable ? (language == nil ? 36 : 28) : 0) // 8pt toward the close button: the switcher's own touch padding would double the gap
                 if count > 1 {
                     HStack(spacing: 4) {
                         ForEach(0..<count, id: \.self) { i in

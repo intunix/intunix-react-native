@@ -86,14 +86,52 @@ private func probeStep(_ id: String) -> Step { Step(id: id, kind: "followup", ti
         self.content = content; self.handle = handle; self.locale = locale; self.timing = timing
     }
 
-    /// Later requests carry `lang` and local mode reads `content`; shown messages stay as they were.
+    /// Later requests carry `lang`. Bubbles that came from the form (welcome, predefined questions, completion,
+    /// answers to predefined steps) are re-rendered; AI follow-ups and other server text stay as asked.
     package func setLanguage(_ lang: String, content: FeedbackContent, config: ConversationConfig? = nil) {
         locale = lang
         self.content = content
-        // Local mode reads welcome/completion messages from here.
         if let config { handle.config = config }
-        guard state.local, let input = state.input, let same = content.steps.first(where: { $0.id == input.id }) else { return }
-        set { $0.input = same; $0.inputJson = nil }
+        var messages = state.messages
+        for i in messages.indices {
+            if let t = sourceText(messages[i].source), t != messages[i].text { messages[i].text = t }
+        }
+        let same = state.input.flatMap { i in content.steps.first { $0.id == i.id } }
+        if messages != state.messages || same != nil {
+            set { $0.messages = messages; if let same { $0.input = same; $0.inputJson = nil } }
+        }
+    }
+
+    private func completionText() -> String { handle.config.completionMessage ?? content.thanks?.title ?? Defaults.thanksTitle }
+
+    private func sourceText(_ src: MessageSource?) -> String? {
+        switch src {
+        case nil: return nil
+        case .welcome?: return handle.config.welcomeMessage
+        case .completion?: return completionText()
+        case .step(let id)?: return content.steps.first { $0.id == id }?.title
+        case .answer(let id)?:
+            guard let step = content.steps.first(where: { $0.id == id }), let a = answers.first(where: { $0.stepId == id }) else { return nil }
+            return answerLabel(step, a)
+        }
+    }
+
+    /// Server text carries no origin: match it against the form's own texts as they were when it arrived.
+    private func tagServer(_ text: String, done: Bool) -> MessageSource? {
+        if text == handle.config.welcomeMessage { return .welcome }
+        if let s = content.steps.first(where: { $0.title == text }) { return .step(s.id) }
+        return done && text == completionText() ? .completion : nil
+    }
+
+    /// A restored respondent bubble right after a predefined question is that question's answer.
+    private func tagTranscript(_ list: [ChatMessage], done: Bool) -> [ChatMessage] {
+        list.enumerated().map { i, m in
+            var m = m
+            if m.source != nil { return m }
+            if m.role == "nia" { m.source = tagServer(m.text, done: done && i == list.count - 1); return m }
+            if i > 0, list[i - 1].role == "nia", let id = content.steps.first(where: { $0.title == list[i - 1].text })?.id, answered(id) { m.source = .answer(id) }
+            return m
+        }
     }
 
     package func subscribe(_ cb: @escaping () -> Void) -> () -> Void {
@@ -122,7 +160,8 @@ private func probeStep(_ id: String) -> Step { Step(id: id, kind: "followup", ti
         guard !disposed, !state.pending, !state.done, let input = state.input, a.stepId == input.id, isAnswerValid(input, a) else { return false }
         if isEmptyAnswer(a) { await skip(); return false }
         answers = answers.filter { $0.stepId != a.stepId } + [a]
-        set { $0.messages.append(ChatMessage("respondent", answerLabel(input, a))) }
+        let source: MessageSource? = content.steps.contains { $0.id == a.stepId } ? .answer(a.stepId) : nil
+        set { $0.messages.append(ChatMessage("respondent", answerLabel(input, a), source: source)) }
         if state.local { advanceLocal() } else { await send("answer", a) }
         return true
     }
@@ -211,10 +250,10 @@ private func probeStep(_ id: String) -> Step { Step(id: id, kind: "followup", ti
     }
 
     private func applyReply(_ reply: TurnReply, isStart: Bool) {
-        let added = reply.messages.map { ChatMessage("nia", $0) }
+        let added = reply.messages.map { ChatMessage("nia", $0, source: tagServer($0, done: reply.done)) }
         if let i = reply.input { seen[i.id] = i }
         if isStart { seed(reply) }
-        let restored = isStart ? reply.transcript.flatMap { $0.isEmpty ? nil : $0 } : nil
+        let restored = isStart ? reply.transcript.flatMap { $0.isEmpty ? nil : tagTranscript($0, done: reply.done) } : nil
         set {
             $0.messages = restored ?? (isStart ? added : $0.messages + added)
             $0.input = reply.input; $0.inputJson = reply.inputJson; $0.answered = reply.answered; $0.total = reply.total
@@ -238,14 +277,14 @@ private func probeStep(_ id: String) -> Step { Step(id: id, kind: "followup", ti
 
     private func goLocal(_ action: String) {
         set { $0.local = true; $0.pending = false }
-        if action == "resume", state.messages.isEmpty, let w = handle.config.welcomeMessage, !w.isEmpty { pushNia(w) }
+        if action == "resume", state.messages.isEmpty, let w = handle.config.welcomeMessage, !w.isEmpty { pushNia(w, source: .welcome) }
         // The failed action consumed the current input, so move to the next predefined step.
         advanceLocal(dedupe: true)
     }
 
     private func advanceLocal(dedupe: Bool = false) {
         let next = visibleSteps().first { !answered($0.id) && !skipped.contains($0.id) }
-        pushNia(next?.title ?? (handle.config.completionMessage ?? content.thanks?.title ?? Defaults.thanksTitle), dedupe: dedupe)
+        pushNia(next?.title ?? completionText(), dedupe: dedupe, source: next.map { .step($0.id) } ?? .completion)
         let steps = visibleSteps()
         let n = steps.filter { answered($0.id) || skipped.contains($0.id) }.count
         set {
@@ -269,9 +308,9 @@ private func probeStep(_ id: String) -> Step { Step(id: id, kind: "followup", ti
     private func answered(_ id: String) -> Bool { answers.contains { $0.stepId == id } }
 
     /// `dedupe`: skip a message the server already showed as the last one.
-    private func pushNia(_ text: String, dedupe: Bool = false) {
+    private func pushNia(_ text: String, dedupe: Bool = false, source: MessageSource? = nil) {
         if dedupe, let last = state.messages.last, last.role == "nia", last.text == text { return }
-        set { $0.messages.append(ChatMessage("nia", text)) }
+        set { $0.messages.append(ChatMessage("nia", text, source: source)) }
     }
 
     private func set(_ patch: (inout ConversationState) -> Void) {

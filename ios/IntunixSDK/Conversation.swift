@@ -60,10 +60,18 @@ package struct TurnRequest: Equatable {
     }
 }
 
+/// Where a bubble's text came from; only form-owned text re-renders on a language switch.
+package enum MessageSource: Equatable {
+    case welcome, completion
+    case step(String), answer(String)
+}
+
 package struct ChatMessage: Equatable {
     /// "nia" | "respondent".
-    package let role: String, text: String
-    package init(_ role: String, _ text: String) { self.role = role; self.text = text }
+    package let role: String
+    package var text: String
+    package var source: MessageSource?
+    package init(_ role: String, _ text: String, source: MessageSource? = nil) { self.role = role; self.text = text; self.source = source }
 }
 
 package struct TurnReply {

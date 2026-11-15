@@ -142,7 +142,7 @@ private struct Header: View {
                     Spacer(minLength: 0)
                     if let language { language }
                 }
-                .padding(.trailing, closable || language == nil ? 36 : 0)
+                .padding(.trailing, language == nil ? 36 : (closable ? 28 : 0)) // 8pt toward the close button: the switcher's own touch padding would double the gap
                 if pageCount > 1 {
                     HStack(spacing: 4) {
                         ForEach(0..<pageCount, id: \.self) { i in

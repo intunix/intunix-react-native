@@ -50,6 +50,7 @@ struct FeedbackFormView: View {
     var fixedWidth: CGFloat? = nil
     @State private var measured: CGFloat = 0
     @Environment(\.formDark) private var dark
+    @Environment(\.layoutDirection) private var direction // the parent's: RtlRoot is applied inside body
 
     var body: some View {
         let state = host.state
@@ -94,7 +95,7 @@ struct FeedbackFormView: View {
                 }
                 .buttonStyle(TapStyle())
                 .accessibilityLabel(texts?.close ?? "Close")
-                .offset(x: 8, y: -8)
+                .offset(x: (host.language.decorated ? host.language.rtl : direction == .rightToLeft) ? -8 : 8, y: -8)
             }
         }
         .environment(\.brand, brand)

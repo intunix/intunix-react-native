@@ -16,6 +16,8 @@ public struct IntunixForm: View {
     private let onHeightChange: ((CGFloat) -> Void)?
     private let theme: IntunixTheme?
     private let locale: String?
+    /// Reports the form's reading direction to the UIKit wrapper; not part of the public API.
+    var onDirection: ((UISemanticContentAttribute) -> Void)? = nil
     // Lives as long as this view's identity, so re-appearing (navigation, tabs) keeps answers.
     @StateObject private var model = InlineFormModel()
 
@@ -45,6 +47,9 @@ public struct IntunixForm: View {
             if let host = model.host, !model.done {
                 Group { if host.chat != nil { ChatForm(host: host) } else { FeedbackFormView(host: host) } }
                     .modifier(FormTheme(brand: host.content.brand, explicit: theme))
+                    .onReceive(host.$version) { _ in
+                        if host.language.decorated { onDirection?(host.language.rtl ? .forceRightToLeft : .forceLeftToRight) }
+                    }
             }
         }
         .background(GeometryReader { g in Color.clear.preference(key: FormHeightPref.self, value: g.size.height) })
@@ -93,9 +98,11 @@ public final class IntunixFormUIView: UIView {
     }
 
     private func makeView(_ form: String, _ context: [String: Any]?) -> IntunixForm {
-        IntunixForm(form: form, context: context, theme: theme, locale: locale,
-                    onFinished: { [weak self] in self?.onFinished?() },
-                    onHeightChange: { [weak self] h in self?.onHeightChanged?(h) })
+        var v = IntunixForm(form: form, context: context, theme: theme, locale: locale,
+                            onFinished: { [weak self] in self?.onFinished?() },
+                            onHeightChange: { [weak self] h in self?.onHeightChanged?(h) })
+        v.onDirection = { [weak self] d in self?.hosting?.view.semanticContentAttribute = d }
+        return v
     }
 
     /// Show a form (id or slug). Calling again with another form replaces it.

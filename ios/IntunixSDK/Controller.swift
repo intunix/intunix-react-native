@@ -22,7 +22,8 @@ let maxBusyRetries = 2
 
 @MainActor private final class Once<T> {
     var cont: CheckedContinuation<Result<T, Error>?, Never>?
-    func finish(_ r: Result<T, Error>?) { let c = cont; cont = nil; c?.resume(returning: r) }
+    var tasks: [Task<Void, Never>] = []
+    func finish(_ r: Result<T, Error>?) { guard let c = cont else { return }; cont = nil; tasks.forEach { $0.cancel() }; c.resume(returning: r) }
 }
 
 /// Runs `op` as its own task and resumes with its outcome, or nil when `ms` passes or `stop` fires first.
@@ -30,19 +31,17 @@ let maxBusyRetries = 2
 /// cannot hold the caller back; its late result is dropped.
 @MainActor func bounded<T>(ms: UInt64, stop: Signal? = nil, _ op: @escaping @MainActor () async throws -> T) async -> Result<T, Error>? {
     let once = Once<T>()
-    var tasks: [Task<Void, Never>] = []
     let r: Result<T, Error>? = await withCheckedContinuation { c in
         once.cont = c
-        tasks.append(Task { @MainActor in
+        once.tasks.append(Task { @MainActor in
             do { once.finish(.success(try await op())) } catch { once.finish(.failure(error)) }
         })
-        tasks.append(Task { @MainActor in
+        once.tasks.append(Task { @MainActor in
             try? await Task.sleep(nanoseconds: ms * 1_000_000)
             once.finish(nil)
         })
         stop?.on { once.finish(nil) }
     }
-    tasks.forEach { $0.cancel() }
     return r
 }
 

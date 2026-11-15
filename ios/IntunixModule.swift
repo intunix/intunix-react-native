@@ -39,7 +39,7 @@ final class IntunixFormContainer: UIView {
     @objc var form: NSString? { didSet { reload() } }
     @objc var formContext: NSDictionary? { didSet { reload() } }
     @objc var theme: NSString? { didSet { inner.theme = (theme as String?).flatMap(IntunixTheme.init(rawValue:)) } }
-    // Read when the form loads; props arrive before didMoveToWindow, so this is set before setForm runs.
+    // Read when the form loads. The load is async (a task on appear), so a locale set right after `form` is still seen.
     @objc var locale: NSString? { didSet { inner.locale = locale as String? } }
     private let inner = IntunixFormUIView()
     private var loaded: String?

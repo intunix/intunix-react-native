@@ -46,7 +46,7 @@ struct ChatView: View {
     let onEnd: () -> Void
     let onClose: () -> Void
     var footer: ReviewPresenter? = nil
-    @Environment(\.brand) private var brand
+    @Environment(\.layoutDirection) private var direction
 
     var body: some View {
         let pages = max(state.total, 1)
@@ -71,7 +71,7 @@ struct ChatView: View {
                 Button(action: onClose) { Text("×").crispFont(22, .regular, Crisp.muted).frame(width: 36, height: 36) }
                     .buttonStyle(TapStyle())
                     .accessibilityLabel(texts?.close ?? "Close")
-                    .offset(x: 8, y: -8)
+                    .offset(x: direction == .rightToLeft ? -8 : 8, y: -8)
             }
         }
     }

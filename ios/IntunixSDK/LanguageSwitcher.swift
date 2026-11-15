@@ -44,7 +44,7 @@ struct LanguageSwitcher: View {
             .frame(minWidth: 44, minHeight: 44) // touch target
             .contentShape(Rectangle())
         }
-        .accessibilityLabel("\(label), \(now.name)")
+        .accessibilityLabel(Text(verbatim: "\(label), \(now.name)"))
     }
 }
 #endif

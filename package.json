@@ -1,16 +1,34 @@
 {
   "name": "@intunix/react-native",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "description": "Intunix feedback forms (NPS, CSAT, CES, ratings, follow-ups) in React Native apps, using the native Intunix Android and iOS SDKs.",
   "main": "src/index.tsx",
   "types": "src/index.tsx",
   "react-native": "src/index.tsx",
   "source": "src/index.tsx",
-  "files": ["src", "android/build.gradle", "android/src", "ios", "intunix-react-native.podspec", "README.md", "LICENSE"],
-  "repository": { "type": "git", "url": "git+https://github.com/intunix/intunix-react-native.git" },
+  "files": [
+    "src",
+    "android/build.gradle",
+    "android/src",
+    "ios",
+    "intunix-react-native.podspec",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/intunix/intunix-react-native.git"
+  },
   "homepage": "https://github.com/intunix/intunix-react-native#readme",
   "license": "MIT",
-  "keywords": ["react-native", "intunix", "feedback", "nps", "survey", "csat"],
+  "keywords": [
+    "react-native",
+    "intunix",
+    "feedback",
+    "nps",
+    "survey",
+    "csat"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "jest"
@@ -31,6 +49,8 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "moduleNameMapper": { "^react-native$": "<rootDir>/test/react-native-mock.ts" }
+    "moduleNameMapper": {
+      "^react-native$": "<rootDir>/test/react-native-mock.ts"
+    }
   }
 }

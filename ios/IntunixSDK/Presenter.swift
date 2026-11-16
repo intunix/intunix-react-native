@@ -106,9 +106,10 @@ struct FormFrame: View {
             (modal ? Crisp.backdrop : Crisp.backdrop.opacity(0.5))
                 .ignoresSafeArea()
                 .opacity(frame.visible ? 1 : 0)
-                .onTapGesture { host.close() }
-                .accessibilityAddTraits(.isButton)
-                .accessibilityLabel("Close")
+                .onTapGesture { if modal { host.close() } } // like web: only a modal closes on an outside tap
+                .accessibilityAddTraits(modal ? .isButton : [])
+                .accessibilityLabel(modal ? "Close" : "")
+                .accessibilityHidden(!modal)
             if frame.visible {
                 if modal {
                     card(RoundedRectangle(cornerRadius: 16), pad: 24)

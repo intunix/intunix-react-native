@@ -46,7 +46,7 @@ public struct IntunixOptions {
 /// Intunix feedback forms for iOS. Call ``initialize(apiKey:options:)`` once at launch.
 /// Every call is safe from any thread.
 public enum Intunix {
-    public static let version = "1.7.2"
+    public static let version = "1.7.3"
 
     @MainActor static var client: IntunixClient?
     @MainActor private static var presenter: OverlayPresenter?
